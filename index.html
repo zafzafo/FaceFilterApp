@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <!-- SVG Favicon -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎭</text></svg>">
+  <title>VisionAR - Real-Time AI Face Filter Studio</title>
+  <meta name="description" content="Real-time face filter application powered by MediaPipe AI landmark tracking with 5 interactive AR filters, multi-face support, and instant photo capture.">
+
+  <!-- Google Fonts: Outfit & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Application Stylesheet -->
+  <link rel="stylesheet" href="style.css">
+
+  <!-- MediaPipe FaceMesh from Official CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+</head>
+<body>
+  <div id="app-container" class="app-container">
+    <!-- Hidden source video stream -->
+    <video id="camera-video" playsinline muted autoplay class="sr-only"></video>
+
+    <!-- Full-resolution Viewport Canvas -->
+    <div class="viewport-wrapper">
+      <canvas id="filter-canvas" class="filter-canvas"></canvas>
+
+      <!-- Camera Flash Effect Element -->
+      <div id="camera-flash" class="camera-flash"></div>
+
+      <!-- Shutter Countdown Overlay -->
+      <div id="countdown-overlay" class="countdown-overlay hidden">
+        <div id="countdown-text" class="countdown-number">3</div>
+      </div>
+    </div>
+
+    <!-- Top Status & Quick Control Bar -->
+    <header class="top-bar">
+      <div class="brand-pill">
+        <span class="brand-dot"></span>
+        <span class="brand-title">VisionAR</span>
+      </div>
+
+      <div class="stats-hud">
+        <div class="hud-item" title="Live Framerate">
+          <span class="hud-label">FPS</span>
+          <span id="fps-value" class="hud-val">0</span>
+        </div>
+        <div class="hud-item" title="Faces in Frame">
+          <span class="hud-label">FACES</span>
+          <span id="faces-count" class="hud-val">0</span>
+        </div>
+      </div>
+
+      <div class="quick-actions">
+        <!-- Timer Toggle -->
+        <button id="btn-timer" class="icon-btn" title="Countdown Timer" aria-label="Timer">
+          <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <polyline points="12 6 12 12 16 14"/>
+          </svg>
+          <span class="btn-label">Off</span>
+        </button>
+
+        <!-- Debug Mesh Toggle -->
+        <button id="btn-debug" class="icon-btn" title="Toggle 468-Point Landmark Wireframe" aria-label="Debug Wireframe">
+          <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="12 2 2 7 12 12 22 7 12 2"/>
+            <polyline points="2 17 12 22 22 17"/>
+            <polyline points="2 12 12 17 22 12"/>
+          </svg>
+          <span class="btn-label">Mesh</span>
+        </button>
+
+        <!-- Demo Mode Toggle -->
+        <button id="btn-demo" class="icon-btn" title="Toggle Live Camera vs Interactive Demo Face" aria-label="Demo Mode">
+          <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+            <line x1="8" y1="21" x2="16" y2="21"/>
+            <line x1="12" y1="17" x2="12" y2="21"/>
+          </svg>
+          <span class="btn-label">Live Cam</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Bottom Controls & Filter Dock -->
+    <footer class="bottom-dock">
+      <!-- 5 Interactive Filters Carousel + None Option -->
+      <div class="filter-carousel-container">
+        <div class="filter-carousel" role="tablist" aria-label="Face Filters">
+          <!-- Filter 0: None -->
+          <button class="filter-pill" data-filter="none" role="tab" aria-selected="false" id="filter-tab-none">
+            <div class="filter-icon-wrap">
+              <span class="filter-emoji">🚫</span>
+            </div>
+            <span class="filter-name">None</span>
+          </button>
+
+          <!-- Filter 1: Dog Filter -->
+          <button class="filter-pill active" data-filter="dog" role="tab" aria-selected="true" id="filter-tab-dog">
+            <div class="filter-icon-wrap">
+              <span class="filter-emoji">🐶</span>
+            </div>
+            <span class="filter-name">Puppy Dog</span>
+          </button>
+
+          <!-- Filter 2: Crown Filter -->
+          <button class="filter-pill" data-filter="crown" role="tab" aria-selected="false" id="filter-tab-crown">
+            <div class="filter-icon-wrap">
+              <span class="filter-emoji">👑</span>
+            </div>
+            <span class="filter-name">Royal Crown</span>
+          </button>
+
+          <!-- Filter 3: Face Color Inversion -->
+          <button class="filter-pill" data-filter="invert" role="tab" aria-selected="false" id="filter-tab-invert">
+            <div class="filter-icon-wrap">
+              <span class="filter-emoji">🔄</span>
+            </div>
+            <span class="filter-name">Face Invert</span>
+          </button>
+
+          <!-- Filter 4: Cool Sunglasses -->
+          <button class="filter-pill" data-filter="sunglasses" role="tab" aria-selected="false" id="filter-tab-sunglasses">
+            <div class="filter-icon-wrap">
+              <span class="filter-emoji">😎</span>
+            </div>
+            <span class="filter-name">Sunglasses</span>
+          </button>
+
+          <!-- Filter 5: Alien Filter -->
+          <button class="filter-pill" data-filter="alien" role="tab" aria-selected="false" id="filter-tab-alien">
+            <div class="filter-icon-wrap">
+              <span class="filter-emoji">👽</span>
+            </div>
+            <span class="filter-name">Cosmic Alien</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Camera Action Bar: Flip Camera & Shutter Button -->
+      <div class="shutter-action-bar">
+        <!-- Spacer for alignment -->
+        <div class="bar-slot left-slot"></div>
+
+        <!-- Central Shutter Button -->
+        <div class="bar-slot center-slot">
+          <button id="btn-shutter" class="shutter-button" aria-label="Take Photo">
+            <div class="shutter-outer-ring">
+              <div class="shutter-inner-core"></div>
+            </div>
+          </button>
+        </div>
+
+        <!-- Camera Flip Button -->
+        <div class="bar-slot right-slot">
+          <button id="btn-flip" class="flip-button" title="Switch Camera" aria-label="Switch Camera">
+            <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M20 10c0-4.418-3.582-8-8-8s-8 3.582-8 8c0 2.21 0.895 4.21 2.343 5.657L4 18"/>
+              <polyline points="4 14 4 18 8 18"/>
+              <path d="M4 14c0 4.418 3.582 8 8 8s8-3.582 8-8c0-2.21-0.895-4.21-2.343-5.657L20 6"/>
+              <polyline points="20 10 20 6 16 6"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </footer>
+
+    <!-- High-res Photo Snapshot Modal -->
+    <div id="snapshot-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h2 id="modal-title" class="modal-title">Photo Captured!</h2>
+          <span class="modal-subtitle">High-resolution AR snapshot</span>
+        </div>
+
+        <div class="snapshot-preview-box">
+          <img id="snapshot-image" alt="Captured AR Photo" class="snapshot-img">
+        </div>
+
+        <div class="modal-actions">
+          <button id="btn-retake" class="modal-btn secondary-btn">
+            <svg class="svg-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="1 4 1 10 7 10"/>
+              <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+            </svg>
+            Retake
+          </button>
+
+          <button id="btn-download" class="modal-btn primary-btn">
+            <svg class="svg-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Save Photo
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="toast hidden" role="status"></div>
+  </div>
+
+  <!-- Main ES Module script -->
+  <script type="module" src="src/app.js"></script>
+</body>
+</html>
